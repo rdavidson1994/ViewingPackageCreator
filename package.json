@@ -19,6 +19,9 @@
     "typescript": "^3.0.3"
   },
   "scripts": {
+    "build": "tsc --target ES2015 index.ts",
+    "start": "node index.js",
+    "start-dev": "cross-env TS_NODE_COMPILER_OPTIONS={\\\"target\\\":\\\"ES2015\\\"} ts-node index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
