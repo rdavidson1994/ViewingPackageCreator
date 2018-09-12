@@ -28,6 +28,8 @@ async function createViewingPackage(file) {
 
 	let displayName = file.split("\\").pop().split("/").pop();
 
+	console.log("Creating a Viewing Package from " + file + "...");
+
 	await requestJs({
 		"method": "POST",
 		"url": viewingPackageCreators,
@@ -81,12 +83,11 @@ async function createViewingPackage(file) {
 								resolve();
 							}, 2000);
 						});
-
 					} else {
 						if (parsedResponse["state"] === "complete") {
 							console.log("Viewing Package `" + documentId + "` created! Expiration Date: " + parsedResponse["output"]["packageExpirationDateTime"] + ".");
 						} else {
-							console.log("Viewing Package `" + documentId + "` creation failed because { \"errorCode\": \"" + parsedResponse["errorCode"] + "\" }.");
+							console.error("Viewing Package `" + documentId + "` creation failed because { \"errorCode\": \"" + parsedResponse["errorCode"] + "\" }.");
 						}
 					}
 				});
@@ -99,8 +100,6 @@ async function createViewingPackage(file) {
 	let files = enumerateFiles();
 
 	for (let x = 0; x < files.length; x++) {
-		console.log("Creating a Viewing Package from " + files[x] + "...");
-
 		await createViewingPackage(files[x]);
 	}
 })();

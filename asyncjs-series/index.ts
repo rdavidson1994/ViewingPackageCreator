@@ -17,16 +17,19 @@ const apiKey = "";
 function enumerateFiles() {
 	let files = [];
 
-	fs.readdirSync(path.join(__dirname, "documents")).forEach(function(file) {
-		files.push(path.join(__dirname, "documents", file));
+	fs.readdirSync(path.join(__dirname, "..", "documents")).forEach(function(file) {
+		files.push(path.join(__dirname, "..", "documents", file));
 	});
 
 	return files;
 }
 
-function viewingPackagePost(callback) {
+function createViewingPackage(file, callback) {
 	let documentId = uuid.v4();
-	let displayName = files[0].split("\\").pop().split("/").pop();
+
+	let displayName = file.split("\\").pop().split("/").pop();
+
+	console.log("Creating a Viewing Package from " + file + "...");
 
 	requestJs.post({
 		"url": viewingPackageCreators,
@@ -45,63 +48,53 @@ function viewingPackagePost(callback) {
 			}
 		}
 	}, function(error, httpResponse, body) {
-		callback(undefined, documentId, body["processId"]);
-	});
-}
+		let processId = body["processId"];
 
-function viewingPackagePut(documentId, processId, callback) {
-	let data = fs.readFileSync(path.join(files[0]));
+		let data = fs.readFileSync(path.join(file));
 
-	requestJs.put({
-		"url": viewingPackageCreators + "/" + processId + "/SourceFile",
-		"headers": {
-			"Accusoft-Secret": "mysecretkey",
-			"Content-Type": "application/octet-stream",
-			"acs-api-key": apiKey
-		},
-		"body": data
-	}, function(error, httpResponse, body) {
-		console.log(error);
-
-		callback(undefined, documentId, processId);
-	});
-}
-function viewingPackagePoll(documentId, processId, callback) {
-	(async function poll() {
-		await requestJs.get({
-			"url": viewingPackageCreators + "/" + processId,
+		requestJs.put({
+			"url": viewingPackageCreators + "/" + processId + "/SourceFile",
 			"headers": {
 				"Accusoft-Secret": "mysecretkey",
+				"Content-Type": "application/octet-stream",
 				"acs-api-key": apiKey
-			}
+			},
+			"body": data
 		}, function(error, httpResponse, body) {
-			let parsedBody = JSON.parse(body);
-			let percentComplete = parsedBody["percentComplete"];
+			(function poll() {
+				requestJs.get({
+					"url": viewingPackageCreators + "/" + processId,
+					"headers": {
+						"Accusoft-Secret": "mysecretkey",
+						"acs-api-key": apiKey
+					}
+				}, async function(error, httpResponse, body) {
+					let parsedBody = JSON.parse(body);
+					let percentComplete = parsedBody["percentComplete"];
 
-			if (parsedBody["state"] === "processing" || parsedBody["state"] === "queued") {
-				console.log("Percent Complete: " + percentComplete + "%");
-				setTimeout(poll, 2000);
-			} else {
-				if (parsedBody["state"] === "complete") {
-					console.log("Viewing Package `" + documentId + "` created! Expiration Date: " + parsedBody["output"]["packageExpirationDateTime"] + ".");
-				} else {
-					console.error("Viewing Package `" + documentId + "` creation failed because { \"errorCode\": \"" + parsedBody["errorCode"] + "\" }.");
-				}
-				callback(undefined);
-			}
+					if (parsedBody["state"] === "processing" || parsedBody["state"] === "queued") {
+						console.log("Percent Complete: " + percentComplete + "%");
+
+						setTimeout(poll, 2000);
+					} else {
+						if (parsedBody["state"] === "complete") {
+							console.log("Viewing Package `" + documentId + "` created! Expiration Date: " + parsedBody["output"]["packageExpirationDateTime"] + ".");
+						} else {
+							console.error("Viewing Package `" + documentId + "` creation failed because { \"errorCode\": \"" + parsedBody["errorCode"] + "\" }.");
+						}
+
+						callback(undefined);
+					}
+				});
+			})();
 		});
-	})();
+	});
 }
+
 (function() {
 	let files = enumerateFiles();
 
-	throw new Error("NotImplementedException");
-
-	async.waterfall([
-		viewingPackagePost,
-		viewingPackagePut,
-		viewingPackagePoll,
-	], function(error) {
+	async.forEachSeries(files, createViewingPackage, function(error) {
 		console.log(error || "Done!");
 	});
 })();

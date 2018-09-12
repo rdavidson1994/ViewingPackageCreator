@@ -1,9 +1,10 @@
 "use strict";
 
+import * as async from "async";
 import * as fs from "fs";
 import * as path from "path";
 import * as requestDebug from "request-debug";
-import * as requestJs from "request-promise";
+import * as requestJs from "request";
 import * as uuid from "uuid";
 
 // if (process.env.NODE_ENV !== "production") {
@@ -23,7 +24,7 @@ function enumerateFiles() {
 	return files;
 }
 
-function createViewingPackage(file) {
+function createViewingPackage(file, callback) {
 	let documentId = uuid.v4();
 
 	let displayName = file.split("\\").pop().split("/").pop();
@@ -46,8 +47,8 @@ function createViewingPackage(file) {
 				"viewingPackageLifetime": 0
 			}
 		}
-	}).then(function(response) {
-		let processId = response["processId"];
+	}, function(error, httpResponse, body) {
+		let processId = body["processId"];
 
 		let data = fs.readFileSync(path.join(file));
 
@@ -59,27 +60,30 @@ function createViewingPackage(file) {
 				"acs-api-key": apiKey
 			},
 			"body": data
-		}).then(function(response) {
-			(async function poll() {
-				await requestJs.get({
+		}, function(error, httpResponse, body) {
+			(function poll() {
+				requestJs.get({
 					"url": viewingPackageCreators + "/" + processId,
 					"headers": {
 						"Accusoft-Secret": "mysecretkey",
 						"acs-api-key": apiKey
 					}
-				}).then(function(response) {
-					let parsedResponse = JSON.parse(response);
+				}, async function(error, httpResponse, body) {
+					let parsedBody = JSON.parse(body);
+					let percentComplete = parsedBody["percentComplete"];
 
-					if (parsedResponse["state"] === "processing" || parsedResponse["state"] === "queued") {
-						console.log("Percent Complete: " + parsedResponse["percentComplete"] + "%");
+					if (parsedBody["state"] === "processing" || parsedBody["state"] === "queued") {
+						console.log("Percent Complete: " + percentComplete + "%");
 
 						setTimeout(poll, 2000);
 					} else {
-						if (parsedResponse["state"] === "complete") {
-							console.log("Viewing Package `" + documentId + "` created! Expiration Date: " + parsedResponse["output"]["packageExpirationDateTime"] + ".");
+						if (parsedBody["state"] === "complete") {
+							console.log("Viewing Package `" + documentId + "` created! Expiration Date: " + parsedBody["output"]["packageExpirationDateTime"] + ".");
 						} else {
-							console.error("Viewing Package `" + documentId + "` creation failed because { \"errorCode\": \"" + parsedResponse["errorCode"] + "\" }.");
+							console.error("Viewing Package `" + documentId + "` creation failed because { \"errorCode\": \"" + parsedBody["errorCode"] + "\" }.");
 						}
+
+						callback(undefined);
 					}
 				});
 			})();
@@ -90,7 +94,7 @@ function createViewingPackage(file) {
 (function() {
 	let files = enumerateFiles();
 
-	for (let x = 0; x < files.length; x++) {
-		createViewingPackage(files[x]);
-	}
+	async.forEach(files, createViewingPackage, function(error) {
+		console.log(error || "Done!");
+	});
 })();
