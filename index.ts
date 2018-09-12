@@ -24,7 +24,6 @@ function enumerateFiles() {
 }
 
 async function createViewingPackage(file) {
-
 	let documentId = uuid.v4();
 
 	let displayName = file.split("\\").pop().split("/").pop();
@@ -78,6 +77,7 @@ async function createViewingPackage(file) {
 						await new Promise(function(resolve, reject) {
 							setTimeout(async function() {
 								await poll();
+
 								resolve();
 							}, 2000);
 						});
