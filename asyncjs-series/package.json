@@ -1,0 +1,45 @@
+{
+  "name": "viewingpackagecreator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "async": "^2.6.1",
+    "cross-env": "^5.2.0",
+    "request": "^2.88.0",
+    "request-promise": "^4.2.2",
+    "uuid": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/async": "^2.0.49",
+    "@types/request-promise": "^4.1.42",
+    "@types/uuid": "^3.4.4",
+    "request-debug": "^0.2.0",
+    "ts-node": "^7.0.1",
+    "tslint": "^5.11.0",
+    "typescript": "^3.0.3"
+  },
+  "scripts": {
+    "build": "tsc --target ES2015 index.ts",
+    "start": "node index.js",
+    "start-dev": "cross-env TS_NODE_COMPILER_OPTIONS={\\\"target\\\":\\\"ES2015\\\"} ts-node index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rdavidson1994/ViewingPackageCreator.git"
+  },
+  "author": "Robert Davidson",
+  "contributors": [
+    {
+      "name": "Brian Jenkins",
+      "email": "brianjenkins94@gmail.com",
+      "url": "https://github.com/brianjenkins94/"
+    }
+  ],
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rdavidson1994/ViewingPackageCreator/issues"
+  },
+  "homepage": "https://github.com/rdavidson1994/ViewingPackageCreator#readme"
+}
