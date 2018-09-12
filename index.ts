@@ -1,102 +1,107 @@
 "use strict";
 
-let fs = require("fs");
-let path = require("path");
-let requestDebug = require("request-debug");
-let requestJs = require("request");
-let uuid = require("uuid");
+import * as fs from "fs";
+import * as path from "path";
+import * as requestDebug from "request-debug";
+import * as requestJs from "request-promise";
+import * as uuid from "uuid";
 
-const viewingPackageCreators = "http://10.1.100.196:3000/v2/viewingPackageCreators";
+// if (process.env.NODE_ENV !== "production") {
+// 	requestDebug(requestJs);
+// }
+
+const viewingPackageCreators = "https://api.accusoft.com/prizmdoc/v2/viewingPackageCreators";
+const apiKey = "XtHzYqB2xpyfzz0TkXUK9JGgu6IhfDxJTWxwpo752xAFInYjCF4T_t-T3LQAPKKc";
 
 function enumerateFiles() {
-    let files = [];
+	let files = [];
 
-    fs.readdirSync(path.join(__dirname, "documents")).forEach(function (file) {
-        files.push(path.join(__dirname, "documents", file));
-    });
+	fs.readdirSync(path.join(__dirname, "documents")).forEach(function(file) {
+		files.push(path.join(__dirname, "documents", file));
+	});
 
-    return files;
+	return files;
 }
 
-function createViewingPackage(file, callWhenDone) {
-    let documentId = uuid.v4();
-    let index = file.lastIndexOf("\\");
+(async function() {
+	let files = enumerateFiles();
 
-    if (index === -1) {
-        index = file.lastIndexOf("/");
-    }
+	for (let x = 0; x < files.length; x++) {
+		console.log("Creating a Viewing Package from " + files[x] + "...");
 
-    let displayName = file.substring(index + 1);
+		let documentId = uuid.v4();
 
-    requestJs.post({
-        "url": viewingPackageCreators,
-        "headers": {
-            "Accusoft-Secret": "mysecretkey"
-        },
-        "json": {
-            "input": {
-                "source": {
-                    "type": "upload",
-                    "displayName": displayName,
-                    "documentId": documentId
-                },
-                "viewingPackageLifetime": 0
-            }
-        }
-    }, function (error, httpResponse, body) {
-        let processId = body["processId"];
+		let displayName = files[x].split("\\").pop().split("/").pop();
 
-        let data = fs.readFileSync(path.join(file));
+		await requestJs({
+			"method": "POST",
+			"url": viewingPackageCreators,
+			"headers": {
+				"Accusoft-Secret": "mysecretkey",
+				"acs-api-key": apiKey
+			},
+			"json": {
+				"input": {
+					"source": {
+						"type": "upload",
+						"displayName": displayName,
+						"documentId": documentId
+					},
+					"viewingPackageLifetime": 0
+				}
+			}
+		}).then(async function(response) {
+			console.log("POST");
 
-        requestJs.put({
-            "url": viewingPackageCreators + "/" + body["processId"] + "/SourceFile",
-            "headers": {
-                "Accusoft-Secret": "mysecretkey",
-                "Content-Type": "application/octet-stream"
-            },
-            "body": data
-        }, function (error, httpResponse, body) {
-            (function poll() {
-                requestJs.get({
-                    "url": viewingPackageCreators + "/" + processId,
-                    "headers": {
-                        "Accusoft-Secret": "mysecretkey"
-                    }
-                }, async function (error, httpResponse, body) {
-                    let parsedBody = JSON.parse(body)
-                    let percentComplete = parsedBody["percentComplete"];
+			let processId = response["processId"];
 
-                    if (parsedBody["state"] === "processing" || parsedBody["state"] === "queued") {
-                        console.log("Percent Complete: " + percentComplete + "%");
+			let data = fs.readFileSync(path.join(files[x]));
 
-                        setTimeout(poll, 2000);
-                    } else {
-                        if (parsedBody["state"] === "complete") {
-                            console.log("Viewing Package `" + documentId + "` created! Expiration Date: " + parsedBody["output"]["packageExpirationDateTime"] + ".");
-                        } else {
-                            console.log("Viewing Package `" + documentId + "` creation failed because { \"errorCode\": \"" + parsedBody["errorCode"] + "\" }.");
-                        }
-                        callWhenDone();
-                    }
-                });
-            })();
-        });
-    });
-};
+			await requestJs.put({
+				"method": "PUT",
+				"url": viewingPackageCreators + "/" + processId + "/SourceFile",
+				"headers": {
+					"Accusoft-Secret": "mysecretkey",
+					"Content-Type": "application/octet-stream",
+					"acs-api-key": apiKey
+				},
+				"body": data
+			}).then(async function(response) {
+				console.log("PUT");
 
-(function startUpClosure() {
+				await (async function poll() {
+					await requestJs({
+						"method": "GET",
+						"url": viewingPackageCreators + "/" + processId,
+						"headers": {
+							"Accusoft-Secret": "mysecretkey",
+							"acs-api-key": apiKey
+						}
+					}).then(async function(response) {
+						console.log("GET");
 
-    let files = enumerateFiles();
+						let parsedResponse = JSON.parse(response);
 
-    function createGreaterViewingPackages(x) {
-        //Create all viewing packages greater than the given index
-        function callWhenDone() {
-            if (x + 1 < files.length) {
-                createGreaterViewingPackages(x + 1)
-            }
-        }
-        console.log("Creating a Viewing Package from " + files[x] + "...");
-        createViewingPackage(files[x], callWhenDone)
-    }
-    createGreaterViewingPackages(0);
+						if (parsedResponse["state"] === "processing" || parsedResponse["state"] === "queued") {
+							console.log("Percent Complete: " + parsedResponse["percentComplete"] + "%");
+
+							await new Promise(function(resolve, reject) {
+								setTimeout(async function() {
+									await poll();
+									resolve();
+								}, 2000);
+							});
+
+						} else {
+							if (parsedResponse["state"] === "complete") {
+								console.log("Viewing Package `" + documentId + "` created! Expiration Date: " + parsedResponse["output"]["packageExpirationDateTime"] + ".");
+							} else {
+								console.log("Viewing Package `" + documentId + "` creation failed because { \"errorCode\": \"" + parsedResponse["errorCode"] + "\" }.");
+							}
+						}
+					});
+				})();
+			});
+		});
+	}
 })();
