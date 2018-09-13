@@ -68,7 +68,7 @@ function createViewingPackage(file, callback) {
 						"Accusoft-Secret": "mysecretkey",
 						"acs-api-key": apiKey
 					}
-				}, async function(error, httpResponse, body) {
+				}, function(error, httpResponse, body) {
 					let parsedBody = JSON.parse(body);
 					let percentComplete = parsedBody["percentComplete"];
 
