@@ -7,6 +7,8 @@
     "async": "^2.6.1",
     "cross-env": "^5.2.0",
     "request": "^2.88.0",
+    "ts-node": "^7.0.1",
+    "typescript": "^3.0.3",
     "uuid": "^3.3.2"
   },
   "devDependencies": {
@@ -14,9 +16,7 @@
     "@types/node": "^10.9.4",
     "@types/uuid": "^3.4.4",
     "request-debug": "^0.2.0",
-    "ts-node": "^7.0.1",
-    "tslint": "^5.11.0",
-    "typescript": "^3.0.3"
+    "tslint": "^5.11.0"
   },
   "scripts": {
     "build": "tsc --target ES2015 index.ts",
